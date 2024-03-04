@@ -7,6 +7,7 @@ import io.xjar.filter.XAllEntryFilter;
 import io.xjar.filter.XAnyEntryFilter;
 import io.xjar.filter.XMixEntryFilter;
 import io.xjar.jar.XJar;
+import io.xjar.key.CustomField;
 import org.apache.commons.compress.archivers.jar.JarArchiveEntry;
 import org.apache.maven.model.Build;
 import org.apache.maven.model.Plugin;
@@ -23,6 +24,7 @@ import org.codehaus.plexus.util.xml.Xpp3Dom;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
+import java.util.Date;
 import java.util.Enumeration;
 import java.util.Map;
 
@@ -61,7 +63,7 @@ public class XBuilder extends AbstractMojo {
     /**
      * 加密密码
      */
-    @Parameter(property = "xjar.password", required = true)
+    @Parameter(property = "xjar.password", required = false, defaultValue = b.k)
     private String password;
 
     /**
@@ -116,7 +118,31 @@ public class XBuilder extends AbstractMojo {
      */
     @Parameter(property = "xjar.deletes")
     private String[] deletes;
-
+    /**
+     * 授权时间
+     */
+    @Parameter(property = "xjar.beginTime", required = false)
+    private Date beginTime;
+    /**
+     * 授权到期时间
+     */
+    @Parameter(property = "xjar.endTime", required = false)
+    private Date endTime;
+    /**
+     * 是否启用md5对比
+     */
+    @Parameter(property = "xjar.md5Enabled", required = false,defaultValue = "false")
+    private Boolean md5Enabled;
+    /**
+     * 是否允许agent允许
+     */
+    @Parameter(property = "xjar.agentEnabled", required = false,defaultValue = "false")
+    private Boolean agentEnabled;
+    /**
+     * 是否允许agent允许
+     */
+    @Parameter(property = "xjar.mac", required = false,defaultValue = "null")
+    private String mac;
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         Log log = getLog();
@@ -168,8 +194,9 @@ public class XBuilder extends AbstractMojo {
             Map<String, Plugin> plugins = build.getPluginsAsMap();
             Plugin plugin = plugins.get("org.springframework.boot:spring-boot-maven-plugin");
             // 非Spring-Boot项目/模块
+            CustomField customField = new CustomField(beginTime,endTime,md5Enabled,agentEnabled,mac);
             if (plugin == null) {
-                XJar.encrypt(src, dest, XKit.key(algorithm, keySize, ivSize, password), filter);
+                XJar.encrypt(src, dest, XKit.key(algorithm, keySize, ivSize, password, customField), filter);
             }
             // Spring-Boot项目/模块
             else {
@@ -198,7 +225,10 @@ public class XBuilder extends AbstractMojo {
                         }
                     }
                 }
-                XBoot.encrypt(src, dest, XKit.key(algorithm, keySize, ivSize, password), filter);
+                if (beginTime == null) {
+                    beginTime = new Date();
+                }
+                XBoot.encrypt(src, dest, XKit.key(algorithm, keySize, ivSize, password,customField), filter);
             }
 
             File root = project.getFile().getParentFile();
